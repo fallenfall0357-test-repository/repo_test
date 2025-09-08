@@ -270,7 +270,7 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
 # -------------------------
 # Training loop（Sample：copy task）
 # -------------------------
-steps = 5000
+steps = 3000
 model.train()
 pbar = tqdm(range(steps), desc="Training")
 for step in pbar:
