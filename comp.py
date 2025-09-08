@@ -7,13 +7,13 @@ from tqdm import tqdm
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # -------------------------
-# 读取文本 & 建 vocab (+ special tokens)
+# read text & build vocab (+ special tokens)
 # -------------------------
 with open('./intro_transformer.txt','r',encoding='utf-8') as f:
     text = f.read()
 
 base_chars = sorted(list(set(text)))
-# 增加特殊 token（简洁需要的最少）
+# set special token
 PAD = "<pad>"
 BOS = "<bos>"
 EOS = "<eos>"
@@ -31,10 +31,10 @@ def decode(ids):
 train_ids = torch.tensor(encode(text), dtype=torch.long)
 
 # -------------------------
-# 辅助：从连续文本取 batch（copy task）
+# fuction：get batch from continuous text（copy task）
 # src: length = block_size
-# tgt_in: [BOS] + src (长度 block_size+1)
-# tgt_out: src + [EOS] (长度 block_size+1)
+# tgt_in: [BOS] + src (length block_size+1)
+# tgt_out: src + [EOS] (length block_size+1)
 # -------------------------
 def get_batch(train_ids, block_size, batch_size, device):
     max_start = len(train_ids) - block_size - 1
@@ -50,7 +50,7 @@ def get_batch(train_ids, block_size, batch_size, device):
     return src.to(device), tgt_in.to(device), tgt_out.to(device)
 
 # -------------------------
-# 最小模块：正弦位置编码（sinusoidal）
+# min module：positional encoding（sinusoidal）
 # -------------------------
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, max_len=512):
@@ -67,7 +67,7 @@ class PositionalEncoding(nn.Module):
         return x + self.pe[:x.size(1), :].unsqueeze(0).to(x.device)
 
 # -------------------------
-# 多头注意力（支持 cross-attn）
+# multi-head attn（cross-attn supported）
 # mask: causal mask of shape (Tq, Tk) with True where allowed
 # -------------------------
 class MultiHeadAttention(nn.Module):
@@ -106,7 +106,7 @@ class MultiHeadAttention(nn.Module):
         return self.o_proj(out)
 
 # -------------------------
-# 简单前馈
+# simple feed forward
 # -------------------------
 class FeedForward(nn.Module):
     def __init__(self, d_model):
@@ -117,7 +117,7 @@ class FeedForward(nn.Module):
         return self.fc2(F.relu(self.fc1(x)))
 
 # -------------------------
-# Encoder / Decoder 层（最小）
+# Encoder / Decoder Layer（minimum）
 # -------------------------
 class EncoderLayer(nn.Module):
     def __init__(self, d_model, num_heads):
@@ -154,7 +154,7 @@ class DecoderLayer(nn.Module):
         return x
 
 # -------------------------
-# Transformer Encoder-Decoder（最小版）
+# Transformer Encoder-Decoder（minimum）
 # -------------------------
 class SimpleTransformerEncDec(nn.Module):
     def __init__(self, vocab_size, d_model=256, num_heads=4, num_enc_layers=2, num_dec_layers=2, max_len=128):
@@ -193,41 +193,41 @@ class SimpleTransformerEncDec(nn.Module):
     def generate(self, src, max_new_tokens=100, temperature=1.0, top_k=50,
                 bos_id=1, eos_id=2):
         """
-        src: (B, S) 源序列
+        src: (B, S) source sequence
         """
         B = src.size(0)
-        # 初始目标序列：只包含 BOS
+        # initial target sequence：only BOS included
         tgt_in = torch.full((B, 1), bos_id, dtype=torch.long, device=src.device)
 
         for _ in range(max_new_tokens):
-            # forward: 编码器 + 解码器
+            # forward: encoder + decoder
             logits = self.forward(src, tgt_in)   # (B, Tt, vocab_size)
-            logits = logits[:, -1, :]            # 取最后一步预测 (B, vocab_size)
+            logits = logits[:, -1, :]            # taking last step predict (B, vocab_size)
 
-            # 温度缩放
+            # Temperature
             logits = logits / temperature
 
-            # Top-k 筛选
+            # Top-k select
             if top_k is not None:
                 v, ix = torch.topk(logits, k=top_k, dim=-1)
                 mask = logits < v[:, [-1]]
                 logits[mask] = -float("Inf")
 
-            # softmax + 采样
+            # softmax + sampling
             probs = F.softmax(logits, dim=-1)
             idx_next = torch.multinomial(probs, num_samples=1)  # (B,1)
 
-            # 拼接到目标序列
+            # concat to target sequence
             tgt_in = torch.cat((tgt_in, idx_next), dim=1)
 
-            # 如果生成到 EOS，就提前结束
+            # if generate to EOS, early break
             if (idx_next == eos_id).all():
                 break
 
         return tgt_in
 
 # -------------------------
-# 超参数 & 模型
+# hyperparameter & model
 # -------------------------
 block_size = 256      # src length
 batch_size = 32
@@ -235,7 +235,7 @@ d_model = 512
 num_heads = 8
 num_enc_layers = 6
 num_dec_layers = 6
-max_tgt_len = block_size + 1  # 因为我们会在 tgt_in 前置 BOS
+max_tgt_len = block_size + 1  # because we will prepose BOS at tgt_in
 
 model = SimpleTransformerEncDec(len(itos), d_model=d_model, num_heads=num_heads,
                                 num_enc_layers=num_enc_layers, num_dec_layers=num_dec_layers,
@@ -244,9 +244,9 @@ model = SimpleTransformerEncDec(len(itos), d_model=d_model, num_heads=num_heads,
 optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
 
 # -------------------------
-# 训练循环（示例：copy task）
+# Training loop（Sample：copy task）
 # -------------------------
-steps = 50000
+steps = 5000
 model.train()
 pbar = tqdm(range(steps), desc="Training")
 for step in pbar:
@@ -259,15 +259,14 @@ for step in pbar:
     if step % 200 == 0:
         pbar.set_postfix({'loss': loss.item()})
 
-# 保存
+# save weights
 torch.save(model.state_dict(), "simple_transformer_encdec.pth")
 
 # -------------------------
-# 生成示例：取文本中的一段作为 src，模型 autoreg 解码
+# generate sample
 # -------------------------
 model.eval()
 with torch.no_grad():
-    # 让用户输入一段字符串作为 source
     user_input = "attentionとは"
     src_ids = encode(user_input)
     src_example = torch.tensor([src_ids], dtype=torch.long, device=device)
