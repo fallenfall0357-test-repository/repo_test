@@ -39,15 +39,39 @@ train_ids = torch.tensor(encode(text), dtype=torch.long)
 def get_batch(train_ids, block_size, batch_size, device):
     max_start = len(train_ids) - block_size - 1
     ix = torch.randint(0, max_start, (batch_size,))
-    src = torch.stack([train_ids[i:i+block_size] for i in ix])
-    tgt = src.clone()
-    tgt_in = torch.full((batch_size, block_size+1), pad_id, dtype=torch.long)
-    tgt_out = torch.full((batch_size, block_size+1), pad_id, dtype=torch.long)
-    tgt_in[:,0] = bos_id
-    tgt_in[:,1:] = tgt
-    tgt_out[:,:block_size] = tgt
-    tgt_out[:,block_size] = eos_id
-    return src.to(device), tgt_in.to(device), tgt_out.to(device)
+
+    src = []
+    tgt_in = []
+    tgt_out = []
+
+    for i in ix:
+        chunk = train_ids[i:i+block_size+1]  # 长度 block_size+1
+        split = torch.randint(1, block_size//2, (1,)).item()  
+        # 随机切分点，前半当提示，后半当目标
+
+        src_seq = chunk[:split]              # prompt
+        tgt_seq = chunk[split:]              # continuation
+
+        # pad 到固定长度
+        src_pad = torch.full((block_size,), pad_id, dtype=torch.long)
+        tgt_in_pad = torch.full((block_size+1,), pad_id, dtype=torch.long)
+        tgt_out_pad = torch.full((block_size+1,), pad_id, dtype=torch.long)
+
+        src_pad[:len(src_seq)] = src_seq
+        tgt_in_pad[0] = bos_id
+        tgt_in_pad[1:1+len(tgt_seq)] = tgt_seq
+        tgt_out_pad[:len(tgt_seq)] = tgt_seq
+        tgt_out_pad[len(tgt_seq)] = eos_id
+
+        src.append(src_pad)
+        tgt_in.append(tgt_in_pad)
+        tgt_out.append(tgt_out_pad)
+
+    return (
+        torch.stack(src).to(device),
+        torch.stack(tgt_in).to(device),
+        torch.stack(tgt_out).to(device),
+    )
 
 # -------------------------
 # 最小模块：正弦位置编码（sinusoidal）
@@ -269,3 +293,4 @@ while True:
     
         #print("SRC :", user_input)
         print("GEN :", decode(gen_ids[0].tolist()),"\n")
+
