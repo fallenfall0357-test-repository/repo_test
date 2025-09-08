@@ -243,24 +243,6 @@ model = SimpleTransformerEncDec(len(itos), d_model=d_model, num_heads=num_heads,
                                 num_enc_layers=num_enc_layers, num_dec_layers=num_dec_layers,
                                 max_len=max(block_size, max_tgt_len)).to(device)
 
-# optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
-
-# # -------------------------
-# # 训练循环（示例：copy task）
-# # -------------------------
-# steps = 2000
-# model.train()
-# pbar = tqdm(range(steps), desc="Training")
-# for step in pbar:
-#     src, tgt_in, tgt_out = get_batch(train_ids, block_size, batch_size, device)
-#     logits = model(src, tgt_in)  # (B, Tt, V)
-#     loss = F.cross_entropy(logits.view(-1, logits.size(-1)), tgt_out.view(-1), ignore_index=pad_id)
-#     optimizer.zero_grad(set_to_none=True)
-#     loss.backward()
-#     optimizer.step()
-#     if step % 200 == 0:
-#         pbar.set_postfix({'loss': loss.item()})
-
 # # 保存
 # torch.save(model.state_dict(), "simple_transformer_encdec.pth")
 model.load_state_dict(torch.load('simple_transformer_encdec.pth', weights_only=True))
@@ -269,20 +251,21 @@ model.load_state_dict(torch.load('simple_transformer_encdec.pth', weights_only=T
 # 生成示例：取文本中的一段作为 src，模型 autoreg 解码
 # -------------------------
 model.eval()
-with torch.no_grad():
-    # 让用户输入一段字符串作为 source
-    user_input = "attentionとは"
-    src_ids = encode(user_input)
-    src_example = torch.tensor([src_ids], dtype=torch.long, device=device)
-
-    gen_ids = model.generate(
-    src_example,
-    max_new_tokens=200,
-    temperature=0.8,
-    top_k=50,
-    bos_id=bos_id,
-    eos_id=eos_id
-    )
-
-    print("SRC :", user_input)
-    print("GEN :", decode(gen_ids[0].tolist()))
+while True:
+    user_input = input("SRC :")
+    with torch.no_grad():
+        #user_input = "attentionとは"
+        src_ids = encode(user_input)
+        src_example = torch.tensor([src_ids], dtype=torch.long, device=device)
+    
+        gen_ids = model.generate(
+        src_example,
+        max_new_tokens=200,
+        temperature=0.8,
+        top_k=50,
+        bos_id=bos_id,
+        eos_id=eos_id
+        )
+    
+        #print("SRC :", user_input)
+        print("GEN :", decode(gen_ids[0].tolist()),"\n")
