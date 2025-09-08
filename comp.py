@@ -45,14 +45,14 @@ def get_batch(train_ids, block_size, batch_size, device):
     tgt_out = []
 
     for i in ix:
-        chunk = train_ids[i:i+block_size+1]  # 长度 block_size+1
+        chunk = train_ids[i:i+block_size+1]  # length block_size+1
         split = torch.randint(1, block_size//2, (1,)).item()  
-        # 随机切分点，前半当提示，后半当目标
+        # random split, first half src, second half tgt
 
         src_seq = chunk[:split]              # prompt
         tgt_seq = chunk[split:]              # continuation
 
-        # pad 到固定长度
+        # pad to fixed length
         src_pad = torch.full((block_size,), pad_id, dtype=torch.long)
         tgt_in_pad = torch.full((block_size+1,), pad_id, dtype=torch.long)
         tgt_out_pad = torch.full((block_size+1,), pad_id, dtype=torch.long)
@@ -270,7 +270,7 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
 # -------------------------
 # Training loop（Sample：copy task）
 # -------------------------
-steps = 3000
+steps = 30000
 model.train()
 pbar = tqdm(range(steps), desc="Training")
 for step in pbar:
