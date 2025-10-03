@@ -43,7 +43,7 @@ def normalize_adj(adj):
     return D_inv_sqrt @ adj @ D_inv_sqrt  # still sparse
 
 A_norm = normalize_adj(A)
-A_norm = torch.FloatTensor(A_norm.toarray())  # 转为 dense tensor（小图可行）
+A_norm = torch.FloatTensor(A_norm.toarray())  # dense tensor
 
 # torch tensor
 X = torch.FloatTensor(X)
