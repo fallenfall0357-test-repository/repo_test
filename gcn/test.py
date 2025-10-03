@@ -7,33 +7,33 @@ from scipy import sparse
 from sklearn.model_selection import train_test_split
 import random
 
-# 固定随机种子（便于复现）
+# random seed
 seed = 42
 random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
 
-# 载入 Karate Club 图（小图用于演示）
+# load Karate Club graph
 G = nx.karate_club_graph()
 A = nx.adjacency_matrix(G)  # sparse adjacency (scipy)
 N = G.number_of_nodes()
 
-# 节点特征（简单示例）：使用单位矩阵（one-hot）或度数作为特征
+# using one-hot as X
 use_one_hot = True
 if use_one_hot:
     X = np.eye(N, dtype=np.float32)
 else:
     X = np.array([d for _, d in G.degree()], dtype=np.float32).reshape(-1,1)
 
-# 标签：networkx 提供 'club' 属性（'Mr. Hi' / 'Officer'），转成 0/1
+# labelling 'club'（'Mr. Hi' / 'Officer'）into 0/1
 club = [G.nodes[i]['club'] for i in range(N)]
 labels = np.array([0 if c == 'Mr. Hi' else 1 for c in club], dtype=np.int64)
 
-# 构建训练/验证/测试划分（小图上演示）
+# train/val/test set
 idx = np.arange(N)
 idx_train, idx_test, y_train, y_test = train_test_split(idx, labels, test_size=0.4, stratify=labels, random_state=seed)
 idx_train, idx_val, _, _ = train_test_split(idx_train, labels[idx_train], test_size=0.25, stratify=labels[idx_train], random_state=seed)
 # idx_train ~ 0.45N, idx_val ~ 0.15N, idx_test ~ 0.4N
 
-# GCN 需要归一化的邻接矩阵 \hat{A} = D^{-1/2} (A + I) D^{-1/2}
+# normalization \hat{A} = D^{-1/2} (A + I) D^{-1/2}
 def normalize_adj(adj):
     adj = adj + sparse.eye(adj.shape[0])
     deg = np.array(adj.sum(1)).flatten()
@@ -45,11 +45,11 @@ def normalize_adj(adj):
 A_norm = normalize_adj(A)
 A_norm = torch.FloatTensor(A_norm.toarray())  # 转为 dense tensor（小图可行）
 
-# 转为 torch tensor
+# torch tensor
 X = torch.FloatTensor(X)
 y = torch.LongTensor(labels)
 
-# 简单的 GCN 层（Kipf & Welling）
+# GCN layer（Kipf & Welling）
 class GCNLayer(nn.Module):
     def __init__(self, in_feats, out_feats, bias=True):
         super().__init__()
@@ -109,11 +109,11 @@ for epoch in range(1, 201):
         acc_test = evaluate(test_mask)
         print(f"Epoch {epoch:03d}  Loss: {loss:.4f}  Train: {acc_train:.3f}  Val: {acc_val:.3f}  Test: {acc_test:.3f}")
 
-# 训练结束后查看测试结果
+# print acc after train
 acc_test = evaluate(test_mask)
 print("Final Test Accuracy:", acc_test)
 
-# 在示例 B 代码最后加上可视化部分
+# visualizaton
 import matplotlib.pyplot as plt
 
 @torch.no_grad()
@@ -123,12 +123,12 @@ def visualize():
     pred = logits.argmax(dim=1).cpu().numpy()
     true = y.cpu().numpy()
 
-    # 布局 (spring_layout 根据力导向排布)
+    # spring_layout
     pos = nx.spring_layout(G, seed=42)
 
     plt.figure(figsize=(12, 5))
 
-    # --- 左图：真实标签 ---
+    # --- left：truth ---
     plt.subplot(1, 2, 1)
     nx.draw(
         G, pos,
@@ -137,7 +137,7 @@ def visualize():
     )
     plt.title("Ground Truth")
 
-    # --- 右图：预测标签 ---
+    # --- right：predict ---
     plt.subplot(1, 2, 2)
     nx.draw(
         G, pos,
@@ -148,5 +148,4 @@ def visualize():
 
     plt.savefig("res.png")
 
-# 训练完成后调用
 visualize()
